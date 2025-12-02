@@ -1,6 +1,7 @@
 "use client";
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,57 +22,54 @@ import {
   Zap
 } from 'lucide-react';
 import Navigation from '@/components/Navigation';
+import { useCart } from '@/lib/CartContext';
+import { useWishlist } from '@/lib/WishlistContext';
+import { useToast } from '@/hooks/use-toast';
+import Image from 'next/image';
 
 const Cart = () => {
-  const [cartItems, setCartItems] = useState([
-    {
-      id: '1',
-      name: 'Sony WH-1000XM5 Wireless Noise Canceling Headphones',
-      price: 349.99,
-      originalPrice: 399.99,
-      image: '/placeholder.svg',
-      category: 'Electronics',
-      quantity: 1,
-      inStock: true,
-      rating: 4.8,
-      features: ['30Hr Battery', 'AI Noise Canceling', 'Touch Controls']
-    },
-    {
-      id: '2',
-      name: 'Smart Coffee Maker Pro with WiFi',
-      price: 199.99,
-      image: '/placeholder.svg',
-      category: 'Kitchen & Home',
-      quantity: 2,
-      inStock: true,
-      rating: 4.6,
-      features: ['WiFi Enabled', 'Programmable', '12-Cup Capacity']
-    }
-  ]);
-
+  const router = useRouter();
+  const { cartItems, updateQuantity: updateCartQuantity, removeFromCart } = useCart();
+  const { addToWishlist } = useWishlist();
+  const { toast } = useToast();
   const [isAnimating, setIsAnimating] = useState(null);
   const [promoCode, setPromoCode] = useState('');
   const [discount, setDiscount] = useState(0);
 
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const subtotal = cartItems.reduce((sum, item) => {
+    const price = item.price || item.product?.price || 0;
+    return sum + (price * item.quantity);
+  }, 0);
   const shipping = subtotal > 199 ? 0 : 15.99;
   const tax = subtotal * 0.08;
   const total = subtotal + shipping + tax - discount;
 
-  const updateQuantity = (id, newQuantity) => {
+  const updateQuantity = async (productId, newQuantity) => {
     if (newQuantity < 1) return;
-    setIsAnimating(id);
+    setIsAnimating(productId);
     setTimeout(() => setIsAnimating(null), 300);
-    setCartItems(items => items.map(item => item.id === id ? { ...item, quantity: newQuantity } : item));
+    await updateCartQuantity(productId, newQuantity);
   };
 
-  const removeItem = (id) => {
-    setIsAnimating(id);
-    setTimeout(() => setCartItems(items => items.filter(item => item.id !== id)), 300);
+  const removeItem = async (productId) => {
+    setIsAnimating(productId);
+    setTimeout(async () => {
+      await removeFromCart(productId);
+      toast({
+        title: "Removed from cart",
+        description: "Item has been removed from your cart."
+      });
+    }, 300);
   };
 
-  const moveToWishlist = (id) => {
-    removeItem(id);
+  const moveToWishlist = async (item) => {
+    const product = item.product || item;
+    await addToWishlist(product);
+    await removeFromCart(item.productId || item.id);
+    toast({
+      title: "Moved to wishlist",
+      description: "Item has been moved to your wishlist."
+    });
   };
 
   const applyPromoCode = () => {
@@ -126,11 +124,22 @@ const Cart = () => {
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Cart Items */}
           <div className="lg:col-span-2 space-y-6">
-            {cartItems.map((item, index) => (
+            {cartItems.map((item) => {
+              const product = item.product || item;
+              const productId = item.productId || item.id;
+              const price = parseFloat(item.price || product.price || 0);
+              const originalPrice = parseFloat(item.originalPrice || product.originalPrice || 0);
+              const image = item.image || product.image || '/placeholder.svg';
+              const name = item.name || product.name || 'Product';
+              const category = item.category || product.category || 'General';
+              const rating = parseFloat(item.rating || product.rating || 4.5);
+              const features = item.features || product.specs || [];
+              
+              return (
               <Card 
-                key={item.id} 
+                key={productId} 
                 className={`overflow-hidden hover:shadow-lg transition-all duration-300 bg-white/80 backdrop-blur-sm ${
-                  isAnimating === item.id ? 'opacity-0 scale-95' : ''
+                  isAnimating === productId ? 'opacity-0 scale-95' : ''
                 }`}
               >
                 <CardContent className="p-6">
@@ -138,13 +147,15 @@ const Cart = () => {
                     {/* Product Image */}
                     <div className="relative group">
                       <div className="w-32 h-32 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl flex items-center justify-center overflow-hidden">
-                        <img 
-                          src={item.image} 
-                          alt={item.name}
+                        <Image 
+                          src={image} 
+                          alt={name}
+                          width={128}
+                          height={128}
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                         />
                       </div>
-                      {item.originalPrice && (
+                      {originalPrice && originalPrice > price && (
                         <Badge className="absolute -top-2 -right-2 bg-gradient-to-r from-orange-500 to-red-500 text-white">
                           SALE
                         </Badge>
@@ -155,15 +166,15 @@ const Cart = () => {
                     <div className="flex-1 space-y-4">
                       <div>
                         <Badge variant="outline" className="mb-2">
-                          {item.category}
+                          {category}
                         </Badge>
                         <h3 className="font-bold text-lg line-clamp-2 text-gray-900">
-                          {item.name}
+                          {name}
                         </h3>
                         <div className="flex items-center gap-2 mt-1">
                           <div className="flex items-center gap-1">
                             <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                            <span className="text-sm font-medium">{item.rating}</span>
+                            <span className="text-sm font-medium">{rating}</span>
                           </div>
                           <Badge variant="secondary" className="text-xs">
                             <ShieldCheck className="w-3 h-3 mr-1" />
@@ -173,30 +184,32 @@ const Cart = () => {
                       </div>
 
                       {/* Features */}
-                      <div className="flex flex-wrap gap-2">
-                        {item.features.map((feature, idx) => (
-                          <Badge key={idx} variant="outline" className="text-xs">
-                            <Zap className="w-3 h-3 mr-1" />
-                            {feature}
-                          </Badge>
-                        ))}
-                      </div>
+                      {features.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {features.slice(0, 3).map((feature, idx) => (
+                            <Badge key={idx} variant="outline" className="text-xs">
+                              <Zap className="w-3 h-3 mr-1" />
+                              {feature}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
 
                       {/* Price and Controls */}
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <span className="text-2xl font-bold text-blue-600">
-                              ${item.price.toFixed(2)}
+                              ${price.toFixed(2)}
                             </span>
-                            {item.originalPrice && (
+                            {originalPrice && originalPrice > price && (
                               <span className="text-gray-400 line-through">
-                                ${item.originalPrice.toFixed(2)}
+                                ${originalPrice.toFixed(2)}
                               </span>
                             )}
                           </div>
                           <p className="text-sm text-gray-600">
-                            Subtotal: ${(item.price * item.quantity).toFixed(2)}
+                            Subtotal: ${(price * item.quantity).toFixed(2)}
                           </p>
                         </div>
 
@@ -206,7 +219,7 @@ const Cart = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                              onClick={() => updateQuantity(productId, item.quantity - 1)}
                               className="h-8 w-8 rounded-l-lg hover:bg-blue-50"
                             >
                               <Minus className="w-4 h-4" />
@@ -217,7 +230,7 @@ const Cart = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                              onClick={() => updateQuantity(productId, item.quantity + 1)}
                               className="h-8 w-8 rounded-r-lg hover:bg-blue-50"
                             >
                               <Plus className="w-4 h-4" />
@@ -229,7 +242,7 @@ const Cart = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => moveToWishlist(item.id)}
+                              onClick={() => moveToWishlist(item)}
                               className="hover:bg-red-50 hover:border-red-200 hover:text-red-600"
                             >
                               <Heart className="w-4 h-4" />
@@ -237,7 +250,7 @@ const Cart = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => removeItem(item.id)}
+                              onClick={() => removeItem(productId)}
                               className="hover:bg-red-50 hover:border-red-200 hover:text-red-600"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -249,7 +262,8 @@ const Cart = () => {
                   </div>
                 </CardContent>
               </Card>
-            ))}
+            );
+            })}
           </div>
 
           {/* Order Summary */}
@@ -324,7 +338,23 @@ const Cart = () => {
                 </div>
 
                 <div className="space-y-3">
-                  <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700" size="lg">
+                  <Button 
+                    onClick={() => {
+                      const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
+                      if (userId) {
+                        router.push('/Payment');
+                      } else {
+                        toast({
+                          title: "Please login",
+                          description: "You need to login to proceed to checkout.",
+                          variant: "destructive"
+                        });
+                        router.push('/login');
+                      }
+                    }}
+                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700" 
+                    size="lg"
+                  >
                     <ShieldCheck className="w-5 h-5 mr-2" />
                     Secure Checkout
                   </Button>

@@ -6,6 +6,11 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { ProductsModule } from './products/products.module';
 import { AdminModule } from './admin/admin.module';
+import { WishlistModule } from './wishlist/wishlist.module';
+import { CartModule } from './cart/cart.module';
+import { OrdersModule } from './orders/orders.module';
+import { ContactModule } from './contact/contact.module';
+import { PaymentModule } from './payment/payment.module';
 
 @Module({
   imports: [
@@ -25,6 +30,11 @@ import { AdminModule } from './admin/admin.module';
     AuthModule,
     ProductsModule,
     AdminModule,
+    WishlistModule,
+    CartModule,
+    OrdersModule,
+    ContactModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,56 +1,124 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   User,
-  Settings,
   ShoppingBag,
-  CreditCard,
-  MapPin,
   Heart,
-  Camera,
-  Phone,
-  Mail,
-  Calendar,
   Package,
-  Clock,
-  CheckCircle,
-  Star,
-  Plus
+  LogOut,
+  Loader2
 } from 'lucide-react';
 import Navigation from '@/components/Navigation';
+import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
+import { ordersAPI } from '@/lib/api';
+import { useWishlist } from '@/lib/WishlistContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import Image from 'next/image';
 
-const userData = {
-  id: 1,
-  name: "Alex Johnson",
-  email: "alex.johnson@example.com",
-  phone: "+1 (555) 123-4567",
-  avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
-  memberSince: "2022-03-15",
-  totalOrders: 24,
-  totalSpent: 3420.50,
-  loyaltyPoints: 1250,
-  membershipTier: "Gold"
-};
-
-const orders = [
-  { id: '1', date: '2024-11-28', status: 'Delivered', total: 349.99, items: 2 },
-  { id: '2', date: '2024-11-15', status: 'Shipped', total: 199.99, items: 1 },
-  { id: '3', date: '2024-10-30', status: 'Processing', total: 599.99, items: 3 }
-];
-
-const wishlist = [
-  { id: '1', name: 'AirPods Pro', price: 249, image: 'https://images.unsplash.com/photo-1606841837239-c5a1a4a07af7?w=200' },
-  { id: '2', name: 'iPad Air', price: 599, image: 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=200' }
-];
-
-export default function Profile() {
+export default function Account() {
+  const router = useRouter();
+  const { toast } = useToast();
+  const { wishlistItems, removeFromWishlist } = useWishlist();
+  const { logout } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
+  const [loading, setLoading] = useState(true);
+  const [orders, setOrders] = useState([]);
+  const [userData, setUserData] = useState(null);
+
+  useEffect(() => {
+    // Check if user is logged in
+    const userId = localStorage.getItem('userId');
+    const userName = localStorage.getItem('userName');
+    const userEmail = localStorage.getItem('userEmail');
+
+    if (!userId) {
+      toast({
+        title: "Please login",
+        description: "You need to login to access your account.",
+        variant: "destructive"
+      });
+      router.push('/login');
+      return;
+    }
+
+    setUserData({
+      id: userId,
+      name: userName || 'User',
+      email: userEmail || 'user@example.com'
+    });
+
+    fetchOrders(userId);
+  }, [router, toast]);
+
+  const fetchOrders = async (userId) => {
+    try {
+      setLoading(true);
+      const data = await ordersAPI.getByUser(userId);
+      setOrders(data);
+    } catch (error) {
+      console.error('Failed to fetch orders:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load orders",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    toast({
+      title: "Logged out",
+      description: "You have been logged out successfully."
+    });
+    router.push('/');
+  };
+
+  const handleRemoveFromWishlist = async (productId) => {
+    await removeFromWishlist(productId);
+    toast({
+      title: "Removed from wishlist",
+      description: "Item has been removed from your wishlist."
+    });
+  };
+
+  const getStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'completed':
+      case 'delivered':
+        return 'bg-green-100 text-green-700';
+      case 'shipped':
+      case 'processing':
+        return 'bg-blue-100 text-blue-700';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-700';
+      case 'cancelled':
+        return 'bg-red-100 text-red-700';
+      default:
+        return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  if (loading || !userData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        <Navigation />
+        <div className="container mx-auto px-4 py-24 flex items-center justify-center min-h-screen">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
@@ -63,64 +131,31 @@ export default function Profile() {
             <div className="absolute inset-0 bg-gradient-to-r from-blue-100 via-indigo-100 to-purple-100 opacity-50"></div>
 
             <CardContent className="relative p-8">
-              <div className="flex flex-col md:flex-row items-center gap-6">
-                {/* Profile Picture */}
-                <div className="relative group">
-                  <Avatar className="w-32 h-32 border-4 border-white shadow-xl">
-                    <AvatarImage src={userData.avatar} alt={userData.name} />
+              <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="flex items-center gap-6">
+                  {/* Profile Picture */}
+                  <Avatar className="w-24 h-24 border-4 border-white shadow-xl">
                     <AvatarFallback className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                      {userData.name.split(' ').map(n => n[0]).join('')}
+                      {userData.name.split(' ').map(n => n[0]).join('').toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <Button
-                    size="icon"
-                    variant="secondary"
-                    className="absolute -bottom-2 -right-2 rounded-full shadow-lg group-hover:scale-110 transition-transform"
-                  >
-                    <Camera className="w-4 h-4" />
-                  </Button>
-                </div>
 
-                {/* User Info */}
-                <div className="flex-1 text-center md:text-left">
-                  <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
-                    <h1 className="text-3xl font-bold">{userData.name}</h1>
-                    <Badge className="bg-gradient-to-r from-yellow-400 to-yellow-600 text-white">
-                      {userData.membershipTier}
-                    </Badge>
-                  </div>
-
-                  <div className="space-y-2 text-gray-600">
-                    <div className="flex items-center justify-center md:justify-start gap-2">
-                      <Mail className="w-4 h-4" />
-                      <span>{userData.email}</span>
-                    </div>
-                    <div className="flex items-center justify-center md:justify-start gap-2">
-                      <Phone className="w-4 h-4" />
-                      <span>{userData.phone}</span>
-                    </div>
-                    <div className="flex items-center justify-center md:justify-start gap-2">
-                      <Calendar className="w-4 h-4" />
-                      <span>Member since {new Date(userData.memberSince).toLocaleDateString()}</span>
-                    </div>
+                  {/* User Info */}
+                  <div>
+                    <h1 className="text-3xl font-bold mb-2">{userData.name}</h1>
+                    <p className="text-gray-600">{userData.email}</p>
                   </div>
                 </div>
 
-                {/* Quick Stats */}
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div className="bg-white/70 backdrop-blur-sm rounded-lg p-4">
-                    <div className="text-2xl font-bold text-blue-600">{userData.totalOrders}</div>
-                    <div className="text-sm text-gray-600">Orders</div>
-                  </div>
-                  <div className="bg-white/70 backdrop-blur-sm rounded-lg p-4">
-                    <div className="text-2xl font-bold text-indigo-600">${userData.totalSpent}</div>
-                    <div className="text-sm text-gray-600">Spent</div>
-                  </div>
-                  <div className="bg-white/70 backdrop-blur-sm rounded-lg p-4">
-                    <div className="text-2xl font-bold text-purple-600">{userData.loyaltyPoints}</div>
-                    <div className="text-sm text-gray-600">Points</div>
-                  </div>
-                </div>
+                {/* Logout Button */}
+                <Button
+                  variant="outline"
+                  onClick={handleLogout}
+                  className="hover:bg-red-50 hover:text-red-600 hover:border-red-600"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Logout
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -128,36 +163,25 @@ export default function Profile() {
 
         {/* Profile Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 h-auto p-1 bg-white/80">
+          <TabsList className="grid w-full grid-cols-3 h-auto p-1 bg-white/80">
             <TabsTrigger value="overview" className="flex items-center gap-2 py-3">
               <User className="w-4 h-4" />
-              <span className="hidden sm:inline">Overview</span>
+              <span>Overview</span>
             </TabsTrigger>
             <TabsTrigger value="orders" className="flex items-center gap-2 py-3">
               <ShoppingBag className="w-4 h-4" />
-              <span className="hidden sm:inline">Orders</span>
-            </TabsTrigger>
-            <TabsTrigger value="payments" className="flex items-center gap-2 py-3">
-              <CreditCard className="w-4 h-4" />
-              <span className="hidden sm:inline">Payments</span>
-            </TabsTrigger>
-            <TabsTrigger value="addresses" className="flex items-center gap-2 py-3">
-              <MapPin className="w-4 h-4" />
-              <span className="hidden sm:inline">Addresses</span>
+              <span>Orders</span>
             </TabsTrigger>
             <TabsTrigger value="wishlist" className="flex items-center gap-2 py-3">
               <Heart className="w-4 h-4" />
-              <span className="hidden sm:inline">Wishlist</span>
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center gap-2 py-3">
-              <Settings className="w-4 h-4" />
-              <span className="hidden sm:inline">Settings</span>
+              <span>Wishlist</span>
             </TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
           <TabsContent value="overview">
             <div className="grid md:grid-cols-2 gap-6">
+              {/* Recent Orders */}
               <Card className="bg-white/80 backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -166,38 +190,60 @@ export default function Profile() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {orders.slice(0, 3).map(order => (
-                    <div key={order.id} className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg">
-                      <div>
-                        <p className="font-semibold">Order #{order.id}</p>
-                        <p className="text-sm text-gray-600">{order.date}</p>
+                  {orders.length === 0 ? (
+                    <p className="text-center text-gray-500 py-8">No orders yet</p>
+                  ) : (
+                    orders.slice(0, 3).map(order => (
+                      <div key={order.id} className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg">
+                        <div>
+                          <p className="font-semibold">Order #{order.orderNumber}</p>
+                          <p className="text-sm text-gray-600">
+                            {new Date(order.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <Badge className={getStatusColor(order.status)}>
+                            {order.status}
+                          </Badge>
+                          <p className="font-bold text-blue-600">${order.totalAmount}</p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <Badge className="bg-green-100 text-green-700">{order.status}</Badge>
-                        <p className="font-bold text-blue-600">${order.total}</p>
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </CardContent>
               </Card>
 
+              {/* Wishlist Preview */}
               <Card className="bg-white/80 backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Heart className="w-5 h-5 text-red-500" />
-                    Wishlist
+                    Wishlist ({wishlistItems.length})
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {wishlist.map(item => (
-                    <div key={item.id} className="flex gap-4 items-center p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg">
-                      <img src={item.image} alt={item.name} className="w-16 h-16 rounded-lg object-cover" />
-                      <div className="flex-1">
-                        <p className="font-semibold">{item.name}</p>
-                        <p className="text-blue-600 font-bold">${item.price}</p>
-                      </div>
-                    </div>
-                  ))}
+                  {wishlistItems.length === 0 ? (
+                    <p className="text-center text-gray-500 py-8">No items in wishlist</p>
+                  ) : (
+                    wishlistItems.slice(0, 3).map(item => {
+                      const product = item.product || item;
+                      return (
+                        <div key={item.id} className="flex gap-4 items-center p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg">
+                          <Image
+                            src={product.image || '/placeholder.svg'}
+                            alt={product.name}
+                            width={64}
+                            height={64}
+                            className="w-16 h-16 rounded-lg object-cover"
+                          />
+                          <div className="flex-1">
+                            <p className="font-semibold line-clamp-1">{product.name}</p>
+                            <p className="text-blue-600 font-bold">${product.price}</p>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -207,76 +253,41 @@ export default function Profile() {
           <TabsContent value="orders">
             <Card className="bg-white/80 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle>Order History</CardTitle>
+                <CardTitle>Order History ({orders.length})</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {orders.map(order => (
-                  <div key={order.id} className="flex justify-between items-center p-4 border rounded-lg hover:shadow-md transition-shadow">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
-                        <Package className="w-6 h-6 text-white" />
+                {orders.length === 0 ? (
+                  <div className="text-center py-16">
+                    <Package className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+                    <p className="text-gray-500 mb-4">No orders yet</p>
+                    <Button onClick={() => router.push('/Shop')}>
+                      Start Shopping
+                    </Button>
+                  </div>
+                ) : (
+                  orders.map(order => (
+                    <div key={order.id} className="flex justify-between items-center p-4 border rounded-lg hover:shadow-md transition-shadow">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
+                          <Package className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                          <p className="font-bold">Order #{order.orderNumber}</p>
+                          <p className="text-sm text-gray-600">
+                            {new Date(order.createdAt).toLocaleDateString()} • {order.items?.length || 0} items
+                          </p>
+                          <p className="text-sm text-gray-500 mt-1">{order.shippingAddress}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-bold">Order #{order.id}</p>
-                        <p className="text-sm text-gray-600">{order.date} • {order.items} items</p>
+                      <div className="text-right">
+                        <Badge className={getStatusColor(order.status)}>
+                          {order.status}
+                        </Badge>
+                        <p className="font-bold text-blue-600 mt-2">${order.totalAmount}</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <Badge className="mb-2">{order.status}</Badge>
-                      <p className="font-bold text-blue-600">${order.total}</p>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Payments Tab */}
-          <TabsContent value="payments">
-            <Card className="bg-white/80 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  Payment Methods
-                  <Button size="sm" className="bg-gradient-to-r from-blue-600 to-indigo-600">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Card
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl text-white">
-                  <p className="text-sm opacity-80">Visa ending in</p>
-                  <p className="text-2xl font-bold my-2">•••• 4242</p>
-                  <div className="flex justify-between items-center">
-                    <span>Expires 12/25</span>
-                    <Badge className="bg-white/20">Default</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Addresses Tab */}
-          <TabsContent value="addresses">
-            <Card className="bg-white/80 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  Saved Addresses
-                  <Button size="sm" className="bg-gradient-to-r from-blue-600 to-indigo-600">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Address
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="p-4 border rounded-lg">
-                  <div className="flex justify-between items-start mb-2">
-                    <p className="font-bold">Home</p>
-                    <Badge>Default</Badge>
-                  </div>
-                  <p className="text-gray-600">123 Main Street</p>
-                  <p className="text-gray-600">New York, NY 10001</p>
-                </div>
+                  ))
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -285,54 +296,59 @@ export default function Profile() {
           <TabsContent value="wishlist">
             <Card className="bg-white/80 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle>My Wishlist</CardTitle>
+                <CardTitle>My Wishlist ({wishlistItems.length})</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {wishlist.map(item => (
-                    <div key={item.id} className="border rounded-lg p-4 hover:shadow-lg transition-shadow">
-                      <img src={item.image} alt={item.name} className="w-full h-48 object-cover rounded-lg mb-3" />
-                      <h3 className="font-bold mb-2">{item.name}</h3>
-                      <p className="text-blue-600 font-bold text-xl mb-3">${item.price}</p>
-                      <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600">
-                        Add to Cart
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Settings Tab */}
-          <TabsContent value="settings">
-            <Card className="bg-white/80 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle>Account Settings</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Full Name</label>
-                    <Input defaultValue={userData.name} />
+                {wishlistItems.length === 0 ? (
+                  <div className="text-center py-16">
+                    <Heart className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+                    <p className="text-gray-500 mb-4">No items in wishlist</p>
+                    <Button onClick={() => router.push('/Shop')}>
+                      Browse Products
+                    </Button>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Email</label>
-                    <Input defaultValue={userData.email} />
+                ) : (
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {wishlistItems.map(item => {
+                      const product = item.product || item;
+                      const productId = item.productId || item.id;
+                      return (
+                        <div key={productId} className="border rounded-lg p-4 hover:shadow-lg transition-shadow">
+                          <Image
+                            src={product.image || '/placeholder.svg'}
+                            alt={product.name}
+                            width={300}
+                            height={300}
+                            className="w-full h-48 object-cover rounded-lg mb-3"
+                          />
+                          <h3 className="font-bold mb-2 line-clamp-2">{product.name}</h3>
+                          <p className="text-blue-600 font-bold text-xl mb-3">${product.price}</p>
+                          <div className="flex gap-2">
+                            <Button
+                              className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600"
+                              onClick={() => router.push(`/Shop/${productId}`)}
+                            >
+                              View Product
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => handleRemoveFromWishlist(productId)}
+                              className="hover:bg-red-50 hover:text-red-600"
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Phone</label>
-                    <Input defaultValue={userData.phone} />
-                  </div>
-                  <Button className="bg-gradient-to-r from-blue-600 to-indigo-600">
-                    Save Changes
-                  </Button>
-                </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
       </div>
+      <Footer />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "@/lib/CartContext";
+import { WishlistProvider } from "@/lib/WishlistContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AdminProvider } from "@/contexts/AdminContext";
 import { Toaster } from "@/components/ui/toaster";
@@ -27,8 +28,10 @@ export default function RootLayout({ children }) {
     <AuthProvider>
       <AdminProvider>
         <CartProvider>
-          {children}
-          <Toaster />
+          <WishlistProvider>
+            {children}
+            <Toaster />
+          </WishlistProvider>
         </CartProvider>
       </AdminProvider>
     </AuthProvider>

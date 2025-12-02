@@ -3,11 +3,15 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, User, Menu, X } from "lucide-react";
+import { ShoppingCart, User, Menu, X, Heart } from "lucide-react";
+import { useWishlist } from "@/lib/WishlistContext";
+import { useCart } from "@/lib/CartContext";
 
 const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const router = useRouter();
+  const { wishlistCount } = useWishlist();
+  const { cartCount } = useCart();
 
   const navLinks = [
     { label: "Home", href: "/" },
@@ -48,10 +52,30 @@ const Navigation = () => {
 
           {/* Actions */}
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => router.push('/Cart')}>
-              <ShoppingCart className="w-5 h-5" />
+            <Button variant="ghost" size="icon" onClick={() => router.push('/Wishlist')} className="relative">
+              <Heart className="w-5 h-5" />
+              {wishlistCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-semibold">
+                  {wishlistCount}
+                </span>
+              )}
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => router.push('/Account')}>
+            <Button variant="ghost" size="icon" onClick={() => router.push('/Cart')} className="relative">
+              <ShoppingCart className="w-5 h-5" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-semibold">
+                  {cartCount}
+                </span>
+              )}
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => {
+              const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
+              if (userId) {
+                router.push('/Account');
+              } else {
+                router.push('/login');
+              }
+            }}>
               <User className="w-5 h-5" />
             </Button>
             <Button

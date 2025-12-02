@@ -1,32 +1,54 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Heart, Star, ShoppingCart } from "lucide-react";
+import { useCart } from "@/lib/CartContext";
+import { useWishlist } from "@/lib/WishlistContext";
+import { useToast } from "@/hooks/use-toast";
 
-const ProductCard = ({ product, viewMode = 'grid', onAddToCart, onToggleWishlist, isInWishlist = false }) => {
+const ProductCard = ({ product, viewMode = 'grid' }) => {
   const router = useRouter();
-  const [isLiked, setIsLiked] = useState(isInWishlist);
+  const { addToCart } = useCart();
+  const { toggleWishlist, isInWishlist } = useWishlist();
+  const { toast } = useToast();
+  const [isLiked, setIsLiked] = useState(false);
+
+  useEffect(() => {
+    setIsLiked(isInWishlist(product.id));
+  }, [product.id, isInWishlist]);
 
   const handleProductClick = () => {
     router.push(`/Shop/${product.id}`);
   };
 
-  const handleToggleWishlist = (e) => {
+  const handleToggleWishlist = async (e) => {
     e.stopPropagation();
-    setIsLiked(!isLiked);
-    if (onToggleWishlist) {
-      onToggleWishlist(product.id);
-    }
+    const added = await toggleWishlist(product);
+    setIsLiked(added);
+    toast({
+      title: added ? "Added to wishlist" : "Removed from wishlist",
+      description: added ? `${product.name} added to your wishlist.` : `${product.name} removed from your wishlist.`,
+    });
   };
 
-  const handleAddToCart = (e) => {
+  const handleAddToCart = async (e) => {
     e.stopPropagation();
-    if (onAddToCart) {
-      onAddToCart(product);
+    const success = await addToCart(product, 1);
+    if (success) {
+      toast({
+        title: "Added to cart!",
+        description: `${product.name} added to your cart.`,
+      });
+    } else {
+      toast({
+        title: "Error",
+        description: "Failed to add to cart. Please try again.",
+        variant: "destructive"
+      });
     }
   };
 

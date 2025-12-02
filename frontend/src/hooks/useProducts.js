@@ -1,39 +1,36 @@
 "use client";
 import { useState, useEffect } from "react";
-import { getFeaturedProducts, getTrendingProducts } from "@/data/products";
+import { productsAPI } from "@/lib/api";
 
 export const useFeaturedProducts = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    // Simulate API call
-    const fetchProducts = async () => {
-      try {
-        setLoading(true);
-        // Simulate network delay
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        
-        const featured = getFeaturedProducts();
-        setProducts(featured);
-        setError(null);
-      } catch (err) {
-        setError("Failed to load featured products");
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Fetch all products and filter featured ones
+      const allProducts = await productsAPI.getAll();
+      const featured = allProducts.filter(p => p.isFeatured);
+      
+      setProducts(featured);
+    } catch (err) {
+      console.error('Failed to load featured products:', err);
+      setError("Failed to load featured products. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchProducts();
   }, []);
 
   const refetch = () => {
-    setLoading(true);
-    setError(null);
-    const featured = getFeaturedProducts();
-    setProducts(featured);
-    setLoading(false);
+    fetchProducts();
   };
 
   const clearError = () => setError(null);
@@ -46,33 +43,30 @@ export const useTrendingProducts = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    // Simulate API call
-    const fetchProducts = async () => {
-      try {
-        setLoading(true);
-        // Simulate network delay
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        
-        const trending = getTrendingProducts();
-        setProducts(trending);
-        setError(null);
-      } catch (err) {
-        setError("Failed to load trending products");
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Fetch all products and filter trending ones
+      const allProducts = await productsAPI.getAll();
+      const trending = allProducts.filter(p => p.isTrending);
+      
+      setProducts(trending);
+    } catch (err) {
+      console.error('Failed to load trending products:', err);
+      setError("Failed to load trending products. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchProducts();
   }, []);
 
   const refetch = () => {
-    setLoading(true);
-    setError(null);
-    const trending = getTrendingProducts();
-    setProducts(trending);
-    setLoading(false);
+    fetchProducts();
   };
 
   const clearError = () => setError(null);

@@ -1,5 +1,7 @@
 "use client";
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +12,36 @@ import Navigation from '@/components/Navigation';
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
+  const [formData, setFormData] = useState({ name: '', email: '', password: '' });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { login, signup } = useAuth();
+  const router = useRouter();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      let result;
+      if (isLogin) {
+        result = await login(formData.email, formData.password);
+      } else {
+        result = await signup(formData.name, formData.email, formData.password);
+      }
+
+      if (result.success) {
+        router.push('/Shop');
+      } else {
+        setError(result.error);
+      }
+    } catch (err) {
+      setError('An unexpected error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
@@ -35,63 +67,83 @@ export default function Login() {
                 {isLogin ? 'Login' : 'Sign Up'}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {!isLogin && (
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {error && (
+                  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                    {error}
+                  </div>
+                )}
+
+                {!isLogin && (
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Full Name</label>
+                    <Input 
+                      placeholder="John Doe" 
+                      value={formData.name}
+                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      required={!isLogin}
+                    />
+                  </div>
+                )}
+                
                 <div>
-                  <label className="block text-sm font-medium mb-2">Full Name</label>
-                  <Input placeholder="John Doe" />
+                  <label className="block text-sm font-medium mb-2">Email</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <Input 
+                      type="email" 
+                      placeholder="you@example.com" 
+                      className="pl-10"
+                      value={formData.email}
+                      onChange={(e) => setFormData({...formData, email: e.target.value})}
+                      required
+                    />
+                  </div>
                 </div>
-              )}
-              
-              <div>
-                <label className="block text-sm font-medium mb-2">Email</label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <Input 
-                    type="email" 
-                    placeholder="you@example.com" 
-                    className="pl-10"
-                  />
-                </div>
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <Input 
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••" 
-                    className="pl-10 pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <Input 
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••" 
+                      className="pl-10 pr-10"
+                      value={formData.password}
+                      onChange={(e) => setFormData({...formData, password: e.target.value})}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              {isLogin && (
-                <div className="flex items-center justify-between text-sm">
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" className="rounded" />
-                    <span>Remember me</span>
-                  </label>
-                  <Link href="#" className="text-blue-600 hover:underline">
-                    Forgot password?
-                  </Link>
-                </div>
-              )}
+                {isLogin && (
+                  <div className="flex items-center justify-between text-sm">
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="rounded" />
+                      <span>Remember me</span>
+                    </label>
+                    <Link href="#" className="text-blue-600 hover:underline">
+                      Forgot password?
+                    </Link>
+                  </div>
+                )}
 
-              <Button 
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                size="lg"
-              >
-                {isLogin ? 'Sign In' : 'Create Account'}
-              </Button>
+                <Button 
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                  size="lg"
+                  disabled={loading}
+                >
+                  {loading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Create Account')}
+                </Button>
 
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
@@ -120,15 +172,21 @@ export default function Login() {
                 </Button>
               </div>
 
-              <p className="text-center text-sm text-gray-600">
-                {isLogin ? "Don't have an account? " : "Already have an account? "}
-                <button
-                  onClick={() => setIsLogin(!isLogin)}
-                  className="text-blue-600 hover:underline font-medium"
-                >
-                  {isLogin ? 'Sign up' : 'Sign in'}
-                </button>
-              </p>
+                <p className="text-center text-sm text-gray-600">
+                  {isLogin ? "Don't have an account? " : "Already have an account? "}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsLogin(!isLogin);
+                      setError('');
+                      setFormData({ name: '', email: '', password: '' });
+                    }}
+                    className="text-blue-600 hover:underline font-medium"
+                  >
+                    {isLogin ? 'Sign up' : 'Sign in'}
+                  </button>
+                </p>
+              </form>
             </CardContent>
           </Card>
         </div>

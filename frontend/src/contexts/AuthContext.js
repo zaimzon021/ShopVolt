@@ -33,6 +33,13 @@ export function AuthProvider({ children }) {
       setUser(data.user);
       if (typeof window !== 'undefined') {
         localStorage.setItem('user', JSON.stringify(data.user));
+        // Store individual fields for easy access
+        localStorage.setItem('userId', data.user.id);
+        localStorage.setItem('userName', data.user.name);
+        localStorage.setItem('userEmail', data.user.email);
+        if (data.token) {
+          localStorage.setItem('token', data.token);
+        }
       }
       return { success: true };
     } catch (error) {
@@ -46,6 +53,13 @@ export function AuthProvider({ children }) {
       setUser(data.user);
       if (typeof window !== 'undefined') {
         localStorage.setItem('user', JSON.stringify(data.user));
+        // Store individual fields for easy access
+        localStorage.setItem('userId', data.user.id);
+        localStorage.setItem('userName', data.user.name);
+        localStorage.setItem('userEmail', data.user.email);
+        if (data.token) {
+          localStorage.setItem('token', data.token);
+        }
       }
       return { success: true };
     } catch (error) {
@@ -53,10 +67,30 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      // Call logout API to update lastLogoutAt
+      if (user && user.id) {
+        await fetch('http://localhost:3001/auth/logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id })
+        });
+      }
+    } catch (error) {
+      console.error('Logout API error:', error);
+    }
+    
     setUser(null);
     if (typeof window !== 'undefined') {
       localStorage.removeItem('user');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('userName');
+      localStorage.removeItem('userEmail');
+      localStorage.removeItem('token');
+      // Clear cart and wishlist
+      localStorage.removeItem('cart');
+      localStorage.removeItem('wishlist');
     }
   };
 

@@ -67,10 +67,32 @@ export default function Contact() {
     message: ''
   });
 
-  const handleSubmit = (e) => {
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    alert('Message sent! We\'ll get back to you soon.');
-    setFormData({ name: '', email: '', subject: '', message: '' });
+    setLoading(true);
+
+    try {
+      const { contactAPI } = await import('@/lib/api');
+      const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
+      
+      await contactAPI.create(
+        formData.name,
+        formData.email,
+        formData.subject,
+        formData.message,
+        userId ? parseInt(userId) : null
+      );
+
+      alert('Message sent! We\'ll get back to you soon.');
+      setFormData({ name: '', email: '', subject: '', message: '' });
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      alert('Failed to send message. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -172,9 +194,10 @@ export default function Contact() {
                       type="submit"
                       className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
                       size="lg"
+                      disabled={loading}
                     >
                       <Send className="w-5 h-5 mr-2" />
-                      Send Message
+                      {loading ? 'Sending...' : 'Send Message'}
                     </Button>
                   </form>
                 </CardContent>

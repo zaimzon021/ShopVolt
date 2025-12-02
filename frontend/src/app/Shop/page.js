@@ -9,13 +9,11 @@ import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { products as allProducts, getAllBrands, getAllCategories } from '@/data/products';
-
-const brands = getAllBrands();
-const categories = getAllCategories();
+import { productsAPI } from '@/lib/api';
 
 export default function Home() {
-  const [filteredProducts, setFilteredProducts] = useState(allProducts);
+  const [allProducts, setAllProducts] = useState([]);
+  const [filteredProducts, setFilteredProducts] = useState([]);
   const [wishlist, setWishlist] = useState([]);
   const [viewMode, setViewMode] = useState('grid');
   const [sortBy, setSortBy] = useState('featured');
@@ -24,7 +22,43 @@ export default function Home() {
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [brands, setBrands] = useState([]);
+  const [categories, setCategories] = useState([]);
   const { toast } = useToast();
+
+  // Fetch products from backend
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        const products = await productsAPI.getAll();
+        setAllProducts(products);
+        setFilteredProducts(products);
+        
+        // Extract unique brands and categories
+        const uniqueBrands = [...new Set(products.map(p => p.brand))];
+        const uniqueCategories = [...new Set(products.map(p => p.category))];
+        setBrands(uniqueBrands);
+        setCategories(uniqueCategories);
+        
+        // Set max price range based on products
+        const maxPrice = Math.max(...products.map(p => p.price));
+        setPriceRange([0, Math.ceil(maxPrice)]);
+      } catch (error) {
+        console.error('Failed to fetch products:', error);
+        toast({ 
+          title: "Error loading products", 
+          description: "Please try again later",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, [toast]);
 
   useEffect(() => {
     const saved = localStorage.getItem('wishlist');
@@ -159,26 +193,34 @@ export default function Home() {
             </div>
 
             {/* Products Grid */}
-            <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6' : 'space-y-4'}>
-              {filteredProducts.map(product => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  viewMode={viewMode}
-                  onToggleWishlist={toggleWishlist}
-                  isInWishlist={wishlist.includes(product.id)}
-                  onAddToCart={(prod) => {
-                    toast({ title: `${prod.name} added to cart!` });
-                  }}
-                />
-              ))}
-            </div>
-
-            {filteredProducts.length === 0 && (
+            {loading ? (
               <div className="text-center py-16">
-                <p className="text-xl text-muted-foreground mb-4">No products found</p>
-                <Button onClick={clearFilters}>Clear filters</Button>
+                <p className="text-xl text-muted-foreground">Loading products...</p>
               </div>
+            ) : (
+              <>
+                <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6' : 'space-y-4'}>
+                  {filteredProducts.map(product => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      viewMode={viewMode}
+                      onToggleWishlist={toggleWishlist}
+                      isInWishlist={wishlist.includes(product.id)}
+                      onAddToCart={(prod) => {
+                        toast({ title: `${prod.name} added to cart!` });
+                      }}
+                    />
+                  ))}
+                </div>
+
+                {filteredProducts.length === 0 && !loading && (
+                  <div className="text-center py-16">
+                    <p className="text-xl text-muted-foreground mb-4">No products found</p>
+                    <Button onClick={clearFilters}>Clear filters</Button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

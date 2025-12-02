@@ -25,7 +25,14 @@ export class AuthService {
     });
 
     await this.userRepository.save(user);
-    return { message: 'User created successfully', userId: user.id };
+    return {
+      message: 'User created successfully',
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      },
+    };
   }
 
   async login(email: string, password: string) {
@@ -39,6 +46,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    // Update last login time
+    user.lastLoginAt = new Date();
+    await this.userRepository.save(user);
+
     return {
       message: 'Login successful',
       user: {
@@ -47,5 +58,14 @@ export class AuthService {
         email: user.email,
       },
     };
+  }
+
+  async logout(userId: number) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (user) {
+      user.lastLogoutAt = new Date();
+      await this.userRepository.save(user);
+    }
+    return { message: 'Logout successful' };
   }
 }

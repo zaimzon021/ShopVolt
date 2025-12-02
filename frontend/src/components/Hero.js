@@ -4,39 +4,70 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Star, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-
-const featuredProducts = [
-  {
-    id: 1,
-    name: "iPhone 15 Pro Max",
-    price: "$1,199",
-    rating: 4.8,
-    image: "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=600",
-    features: ["A17 Pro Chip", "48MP Camera", "Titanium Design"],
-    customers: "50k+"
-  },
-  {
-    id: 2,
-    name: "MacBook Pro M3",
-    price: "$1,999",
-    rating: 4.9,
-    image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=600",
-    features: ["M3 Chip", "18hr Battery", "Liquid Retina"],
-    customers: "35k+"
-  }
-];
+import { productsAPI } from "@/lib/api";
 
 const Hero = () => {
   const router = useRouter();
   const [currentProduct, setCurrentProduct] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
+  const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentProduct((prev) => (prev + 1) % featuredProducts.length);
-    }, 4000);
-    return () => clearInterval(interval);
+    const fetchTrendingProducts = async () => {
+      try {
+        const products = await productsAPI.getTrending();
+        // Take top 2 trending products
+        const topProducts = products.slice(0, 2).map(p => ({
+          id: p.id,
+          name: p.name,
+          price: `$${p.price}`,
+          rating: p.rating,
+          image: p.image,
+          features: p.specs || [],
+          customers: `${p.reviews}+`
+        }));
+        setFeaturedProducts(topProducts);
+      } catch (error) {
+        console.error('Failed to fetch trending products:', error);
+        // Fallback to default products
+        setFeaturedProducts([
+          {
+            id: 1,
+            name: "Premium Product",
+            price: "$199",
+            rating: 4.8,
+            image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600",
+            features: ["Feature 1", "Feature 2", "Feature 3"],
+            customers: "1k+"
+          }
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTrendingProducts();
   }, []);
+
+  useEffect(() => {
+    if (featuredProducts.length > 0) {
+      const interval = setInterval(() => {
+        setCurrentProduct((prev) => (prev + 1) % featuredProducts.length);
+      }, 4000);
+      return () => clearInterval(interval);
+    }
+  }, [featuredProducts]);
+
+  if (loading || featuredProducts.length === 0) {
+    return (
+      <section className="relative min-h-[600px] md:min-h-[70vh] flex items-center overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 py-8 md:py-12">
+        <div className="container mx-auto px-4 md:px-6 text-center">
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </section>
+    );
+  }
 
   const product = featuredProducts[currentProduct];
 
@@ -100,6 +131,7 @@ const Hero = () => {
               className="relative group cursor-pointer"
               onMouseEnter={() => setIsHovered(true)}
               onMouseLeave={() => setIsHovered(false)}
+              onClick={() => router.push(`/Shop/${product.id}`)}
             >
               <div className="absolute -inset-3 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl opacity-20 blur-xl group-hover:opacity-30 transition-opacity"></div>
               

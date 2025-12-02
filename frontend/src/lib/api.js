@@ -1,5 +1,5 @@
-// API base URL
-const API_BASE_URL = 'http://localhost:3001';
+// API base URL - use environment variable or fallback to localhost
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 // Products API
 export const productsAPI = {
@@ -74,6 +74,30 @@ export const productsAPI = {
     }
   },
 
+  // Get trending products
+  getTrending: async () => {
+    const response = await fetch(`${API_BASE_URL}/products/trending`);
+    if (!response.ok) throw new Error('Failed to fetch trending products');
+    const data = await response.json();
+    return data.map(product => ({
+      ...product,
+      price: typeof product.price === 'string' ? parseFloat(product.price) : product.price,
+      originalPrice: typeof product.originalPrice === 'string' ? parseFloat(product.originalPrice) : product.originalPrice
+    }));
+  },
+
+  // Get featured products
+  getFeatured: async () => {
+    const response = await fetch(`${API_BASE_URL}/products/featured`);
+    if (!response.ok) throw new Error('Failed to fetch featured products');
+    const data = await response.json();
+    return data.map(product => ({
+      ...product,
+      price: typeof product.price === 'string' ? parseFloat(product.price) : product.price,
+      originalPrice: typeof product.originalPrice === 'string' ? parseFloat(product.originalPrice) : product.originalPrice
+    }));
+  },
+
   // Create product (Admin)
   create: async (productData) => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
@@ -146,6 +170,27 @@ export const productsAPI = {
   }
 };
 
+// Admin API
+export const adminAPI = {
+  // Admin login
+  login: async (email, password) => {
+    const response = await fetch(`${API_BASE_URL}/admin/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password })
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Admin login failed');
+    }
+    
+    return response.json();
+  }
+};
+
 // Auth API
 export const authAPI = {
   // Signup
@@ -198,5 +243,205 @@ export const authAPI = {
       console.error('Login error:', error);
       throw error;
     }
+  }
+};
+
+// Orders API
+export const ordersAPI = {
+  create: async (userId, items, shippingAddress, paymentMethod, paymentId) => {
+    try {
+      console.log('Creating order with:', { userId, items, shippingAddress, paymentMethod, paymentId });
+      const response = await fetch(`${API_BASE_URL}/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, items, shippingAddress, paymentMethod, paymentId })
+      });
+      
+      const data = await response.json();
+      console.log('Order response:', data);
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to create order');
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Order creation error:', error);
+      throw error;
+    }
+  },
+
+  getAll: async () => {
+    try {
+      console.log('Fetching all orders from:', `${API_BASE_URL}/orders/all`);
+      const response = await fetch(`${API_BASE_URL}/orders/all`);
+      console.log('Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error('Failed to fetch all orders');
+      }
+      
+      const data = await response.json();
+      console.log('Orders received:', data.length, 'orders');
+      return data;
+    } catch (error) {
+      console.error('Fetch all orders error:', error);
+      throw error;
+    }
+  },
+
+  getByUser: async (userId) => {
+    const response = await fetch(`${API_BASE_URL}/orders/user/${userId}`);
+    if (!response.ok) throw new Error('Failed to fetch orders');
+    return response.json();
+  },
+
+  getById: async (orderId) => {
+    const response = await fetch(`${API_BASE_URL}/orders/${orderId}`);
+    if (!response.ok) throw new Error('Failed to fetch order');
+    return response.json();
+  },
+
+  updateStatus: async (orderId, status) => {
+    const response = await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    if (!response.ok) throw new Error('Failed to update order status');
+    return response.json();
+  }
+};
+
+// Payment API
+export const paymentAPI = {
+  process: async (userId, amount, paymentMethod, cardNumber, cardHolder) => {
+    try {
+      console.log('Processing payment:', { userId, amount, paymentMethod, cardNumber, cardHolder });
+      const response = await fetch(`${API_BASE_URL}/payment/process`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, amount, paymentMethod, cardNumber, cardHolder })
+      });
+      
+      const data = await response.json();
+      console.log('Payment response:', data);
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Payment processing failed');
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Payment processing error:', error);
+      throw error;
+    }
+  }
+};
+
+// Contact API
+export const contactAPI = {
+  create: async (name, email, subject, message, userId = null) => {
+    const response = await fetch(`${API_BASE_URL}/contact`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, subject, message, userId })
+    });
+    if (!response.ok) throw new Error('Failed to send message');
+    return response.json();
+  },
+
+  getAll: async () => {
+    const response = await fetch(`${API_BASE_URL}/contact`);
+    if (!response.ok) throw new Error('Failed to fetch contacts');
+    return response.json();
+  },
+
+  updateStatus: async (id, status) => {
+    const response = await fetch(`${API_BASE_URL}/contact/${id}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    if (!response.ok) throw new Error('Failed to update contact status');
+    return response.json();
+  }
+};
+
+// Wishlist API
+export const wishlistAPI = {
+  add: async (userId, productId) => {
+    const response = await fetch(`${API_BASE_URL}/wishlist`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, productId })
+    });
+    if (!response.ok) throw new Error('Failed to add to wishlist');
+    return response.json();
+  },
+
+  get: async (userId) => {
+    const response = await fetch(`${API_BASE_URL}/wishlist/${userId}`);
+    if (!response.ok) throw new Error('Failed to fetch wishlist');
+    return response.json();
+  },
+
+  remove: async (userId, productId) => {
+    const response = await fetch(`${API_BASE_URL}/wishlist`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, productId })
+    });
+    if (!response.ok) throw new Error('Failed to remove from wishlist');
+    return response.json();
+  }
+};
+
+// Cart API
+export const cartAPI = {
+  add: async (userId, productId, quantity = 1) => {
+    const response = await fetch(`${API_BASE_URL}/cart`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, productId, quantity })
+    });
+    if (!response.ok) throw new Error('Failed to add to cart');
+    return response.json();
+  },
+
+  get: async (userId) => {
+    const response = await fetch(`${API_BASE_URL}/cart/${userId}`);
+    if (!response.ok) throw new Error('Failed to fetch cart');
+    return response.json();
+  },
+
+  updateQuantity: async (userId, productId, quantity) => {
+    const response = await fetch(`${API_BASE_URL}/cart`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, productId, quantity })
+    });
+    if (!response.ok) throw new Error('Failed to update cart');
+    return response.json();
+  },
+
+  remove: async (userId, productId) => {
+    const response = await fetch(`${API_BASE_URL}/cart`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, productId })
+    });
+    if (!response.ok) throw new Error('Failed to remove from cart');
+    return response.json();
+  },
+
+  clear: async (userId) => {
+    const response = await fetch(`${API_BASE_URL}/cart/${userId}/clear`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error('Failed to clear cart');
+    return response.json();
   }
 };

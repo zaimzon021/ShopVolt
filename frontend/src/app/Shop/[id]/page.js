@@ -1,38 +1,90 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
-import { getProductById } from "@/data/products";
+import { productsAPI } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShoppingCart, Heart, Star, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useWishlist } from "@/lib/WishlistContext";
+import { useCart } from "@/lib/CartContext";
 
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
+  const { toggleWishlist, isInWishlist } = useWishlist();
   const [quantity, setQuantity] = useState(1);
-  const [isLiked, setIsLiked] = useState(false);
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
   
-  const product = getProductById(params.id);
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        setLoading(true);
+        const data = await productsAPI.getById(params.id);
+        setProduct(data);
+      } catch (error) {
+        console.error('Failed to fetch product:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load product details",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const handleAddToCart = () => {
-    toast({
-      title: "Added to cart!",
-      description: `${quantity}x ${product.name} added to your cart.`,
-    });
+    if (params.id) {
+      fetchProduct();
+    }
+  }, [params.id, toast]);
+
+  const isLiked = product ? isInWishlist(product.id) : false;
+
+  const { addToCart } = useCart();
+
+  const handleAddToCart = async () => {
+    const success = await addToCart(product, quantity);
+    if (success) {
+      toast({
+        title: "Added to cart!",
+        description: `${quantity}x ${product.name} added to your cart.`,
+      });
+    } else {
+      toast({
+        title: "Error",
+        description: "Failed to add to cart. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleToggleWishlist = () => {
-    setIsLiked(!isLiked);
+    const added = toggleWishlist(product);
     toast({
-      title: isLiked ? "Removed from wishlist" : "Added to wishlist",
-      description: isLiked ? `${product.name} removed from your wishlist.` : `${product.name} added to your wishlist.`,
+      title: added ? "Added to wishlist" : "Removed from wishlist",
+      description: added ? `${product.name} added to your wishlist.` : `${product.name} removed from your wishlist.`,
     });
   };
+
+  if (loading) {
+    return (
+      <>
+        <Navigation />
+        <div className="min-h-screen flex items-center justify-center pt-20">
+          <div className="text-center">
+            <p className="text-xl text-gray-600">Loading product...</p>
+          </div>
+        </div>
+        <Footer />
+      </>
+    );
+  }
 
   if (!product) {
     return (

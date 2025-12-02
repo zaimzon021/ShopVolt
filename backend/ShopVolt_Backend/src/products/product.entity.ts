@@ -9,7 +9,7 @@ export class Product {
   name: string;
 
   @Column()
-  category: string;
+  brand: string;
 
   @Column('decimal', { precision: 10, scale: 2 })
   price: number;
@@ -17,12 +17,33 @@ export class Product {
   @Column('decimal', { precision: 10, scale: 2 })
   originalPrice: number;
 
+  @Column('decimal', { precision: 3, scale: 1 })
+  rating: number;
+
+  @Column()
+  reviews: number;
+
   @Column()
   image: string;
+
+  @Column()
+  category: string;
+
+  @Column()
+  discount: number;
+
+  @Column({ default: true })
+  inStock: boolean;
+
+  @Column({ default: false })
+  isFeatured: boolean;
+
+  @Column({ default: false })
+  isTrending: boolean;
 
   @Column('text')
   description: string;
 
-  @Column({ default: true })
-  onSale: boolean;
+  @Column('simple-array', { nullable: true })
+  specs: string[];
 }
